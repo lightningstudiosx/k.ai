@@ -21,6 +21,7 @@
     height:100%; width:100%; object-fit:contain;
     opacity:0; transition:opacity .4s ease;
     image-rendering:auto;
+    filter:saturate(1.12) contrast(1.06);   /* small lift, not a cartoon */
   }
   canvas.on{ opacity:1 }
   #msg{
@@ -45,7 +46,7 @@
 </head>
 <body>
   <div id="bar"></div>
-  <canvas id="out" width="64" height="64"></canvas>
+  <canvas id="out" width="1024" height="1024"></canvas>
   <div id="msg">waking up the cat machine…</div>
   <div id="note"></div>
 
@@ -59,8 +60,8 @@
   const LATENT_DIM = 100;
   const RANK_PROMPT = 'a sharp clear photo of a cat face, detailed fur and eyes';
   const TRIES = Math.min(2000, Math.max(1,
-      parseInt(new URLSearchParams(location.search).get('tries'), 10) || 20));
-  const CHUNK = 4;              // cats generated per batch
+      parseInt(new URLSearchParams(location.search).get('tries'), 10) || 3));
+  const CHUNK = 3;              // cats generated per batch
 
   const canvas = document.getElementById('out');
   const ctx = canvas.getContext('2d');
@@ -94,13 +95,62 @@
         rgb[p*3+c] = Math.max(0, Math.min(255, (data[base + c*px + p] * 0.5 + 0.5) * 255));
     return rgb;
   }
+  // --- upscaling ---------------------------------------------------------
+  // The model emits 64x64. Stretching that straight to a 4K screen in one
+  // step is the blurriest option there is. Doubling repeatedly with
+  // smoothing on (64 -> 128 -> 256 -> 512 -> 1024) keeps far more edge
+  // detail, then one light sharpen pass brings back the fur.
+  const src64 = document.createElement('canvas');
+  src64.width = src64.height = 64;
+  const sctx = src64.getContext('2d');
+
+  function sharpen(c, amount){
+    const w = c.width, h = c.height, k = c.getContext('2d');
+    const src = k.getImageData(0, 0, w, h), out = k.createImageData(w, h);
+    const S = src.data, O = out.data;
+    for (let y = 1; y < h - 1; y++){
+      for (let x = 1; x < w - 1; x++){
+        for (let c2 = 0; c2 < 3; c2++){
+          const i = (y * w + x) * 4 + c2;
+          const blur = (S[i - 4] + S[i + 4] + S[i - w * 4] + S[i + w * 4]) / 4;
+          O[i] = Math.max(0, Math.min(255, S[i] + (S[i] - blur) * amount));
+        }
+        O[(y * w + x) * 4 + 3] = 255;
+      }
+    }
+    // copy the untouched 1px border
+    for (let x = 0; x < w; x++)
+      for (const y of [0, h - 1])
+        for (let c2 = 0; c2 < 4; c2++) O[(y*w+x)*4+c2] = S[(y*w+x)*4+c2];
+    for (let y = 0; y < h; y++)
+      for (const x of [0, w - 1])
+        for (let c2 = 0; c2 < 4; c2++) O[(y*w+x)*4+c2] = S[(y*w+x)*4+c2];
+    k.putImageData(out, 0, 0);
+  }
+
   function draw(rgb){
-    const im = ctx.createImageData(64, 64);
+    const im = sctx.createImageData(64, 64);
     for (let p = 0; p < 64*64; p++){
       im.data[p*4] = rgb[p*3]; im.data[p*4+1] = rgb[p*3+1];
       im.data[p*4+2] = rgb[p*3+2]; im.data[p*4+3] = 255;
     }
-    ctx.putImageData(im, 0, 0);
+    sctx.putImageData(im, 0, 0);
+
+    // progressive 2x upscale chain
+    let cur = src64, size = 64;
+    while (size < 1024){
+      size *= 2;
+      const next = document.createElement('canvas');
+      next.width = next.height = size;
+      const nx = next.getContext('2d');
+      nx.imageSmoothingEnabled = true;
+      nx.imageSmoothingQuality = 'high';
+      nx.drawImage(cur, 0, 0, size, size);
+      if (size >= 256) sharpen(next, 0.35);   // light, only at larger sizes
+      cur = next;
+    }
+    ctx.clearRect(0, 0, 1024, 1024);
+    ctx.drawImage(cur, 0, 0);
     canvas.classList.add('on');
     msg.textContent = '';
   }
@@ -185,14 +235,9 @@
   document.addEventListener('keydown', e => {
     if ((e.code === 'Space' || e.key === 'Enter') && !running){ e.preventDefault(); bestCat(); }
     if (e.key === 's' || e.key === 'S'){
-      const big = document.createElement('canvas');
-      big.width = big.height = 1024;
-      const b = big.getContext('2d');
-      b.imageSmoothingEnabled = true;
-      b.drawImage(canvas, 0, 0, 1024, 1024);
       const a = document.createElement('a');
       a.download = 'cat_' + Date.now() + '.png';
-      a.href = big.toDataURL('image/png');
+      a.href = canvas.toDataURL('image/png');   // already 1024x1024
       a.click();
     }
   });
