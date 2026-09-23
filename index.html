@@ -3,324 +3,332 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Kai's Image AI</title>
+<title>Infinite Cats — Kai's Cat AI</title>
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.min.js"></script>
 <style>
   :root {
-    --bg: #0f1117; --card: #1a1d27; --text: #e8e8ef;
-    --accent: #7c6cff; --accent2: #4dd0a6; --muted: #8a8fa3;
-    box-sizing: border-box;
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    --bg:#140f18; --card:#221a29; --text:#f0e9f2; --accent:#ff9f45;
+    --accent2:#ffd166; --muted:#a397ab; --line:#33283c;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
   }
-  * { box-sizing: inherit; }
-  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
-  html, body { height: 100%; margin: 0; }
-  body {
-    background: var(--bg);
-    background-image: radial-gradient(circle at 20% 10%, #1c1640 0%, transparent 45%),
-                      radial-gradient(circle at 85% 80%, #0e2b25 0%, transparent 40%);
-    color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    display: flex; flex-direction: column; align-items: center;
-    padding: 32px 16px;
+  *{box-sizing:inherit}
+  html,body{height:100%;margin:0}
+  html{scroll-padding-top:env(safe-area-inset-top,0px)}
+  body{
+    background:var(--bg);
+    background-image:radial-gradient(circle at 18% 8%,#3a1f2e 0%,transparent 45%),
+                     radial-gradient(circle at 85% 85%,#2a2013 0%,transparent 42%);
+    color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    display:flex;flex-direction:column;align-items:center;padding:28px 16px;
   }
-  h1 { font-size: 1.8rem; margin: 8px 0 2px; letter-spacing: .5px; }
-  h1 .spark { color: var(--accent); }
-  .sub { color: var(--muted); margin: 0 0 26px; font-size: .95rem; text-align: center; }
-  .card {
-    background: var(--card); border-radius: 18px; padding: 22px;
-    width: 100%; max-width: 500px;
-    box-shadow: 0 10px 34px rgba(0,0,0,.4);
-    border: 1px solid #262a38;
-  }
-  .row { display: flex; gap: 10px; }
-  input[type=text] {
-    flex: 1; padding: 13px 15px; border-radius: 11px; border: 1px solid #2c3040;
-    background: #12141c; color: var(--text); font-size: 1rem; outline: none;
-    min-width: 0;
-  }
-  input[type=text]:focus { border-color: var(--accent); }
-  button {
-    padding: 13px 20px; border-radius: 11px; border: none; cursor: pointer;
-    background: linear-gradient(135deg, var(--accent), #5a49e8);
-    color: white; font-size: 1rem; font-weight: 700;
-  }
-  button.secondary { background: #262a38; }
-  button:disabled { opacity: .5; cursor: wait; }
-  .btnrow { display: flex; gap: 10px; margin-top: 10px; }
-  .btnrow button { flex: 1; }
-  .result { margin-top: 22px; text-align: center; }
-  canvas#out {
-    width: 100%; max-width: 384px; image-rendering: pixelated;
-    border-radius: 14px; border: 1px solid #2c3040; display: none;
-    background: #12141c;
-  }
-  .status { color: var(--muted); font-size: .9rem; margin-top: 12px; min-height: 1.2em; text-align: center; }
-  .error { color: #ff7b7b; }
-  .consent {
-    display: none; margin-top: 16px; padding: 14px 16px; border-radius: 12px;
-    background: #1c2130; border: 1px solid #2e3550; font-size: .92rem;
-  }
-  .consent p { margin: 0 0 10px; }
-  .consent label { display: flex; align-items: center; gap: 8px; color: var(--muted);
-                   font-size: .85rem; margin: 10px 0 12px; cursor: pointer; }
-  progress { width: 100%; height: 10px; accent-color: var(--accent); display: none; margin-top: 12px; }
-  details.settings { margin-top: 18px; color: var(--muted); font-size: .9rem; }
-  details.settings summary { cursor: pointer; user-select: none; }
-  .setrow { display: flex; align-items: center; justify-content: space-between;
-            gap: 12px; margin-top: 12px; }
-  .setrow label { cursor: pointer; }
-  .footer { color: var(--muted); font-size: .8rem; margin-top: 28px; text-align: center; max-width: 480px; }
+  h1{font-size:1.9rem;margin:6px 0 2px;letter-spacing:.5px}
+  h1 .paw{color:var(--accent)}
+  .sub{color:var(--muted);margin:0 0 22px;font-size:.95rem;text-align:center;max-width:460px}
+  .card{background:var(--card);border-radius:20px;padding:22px;width:100%;
+    max-width:520px;box-shadow:0 12px 36px rgba(0,0,0,.45);border:1px solid var(--line)}
+  canvas#out{width:100%;max-width:360px;aspect-ratio:1/1;image-rendering:pixelated;
+    border-radius:16px;border:1px solid var(--line);background:#181220;display:block;margin:0 auto}
+  .catwrap{position:relative;text-align:center}
+  .catwrap.busy canvas{opacity:.45;transition:opacity .2s}
+  .spinner{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    font-size:2.2rem}
+  .catwrap.busy .spinner{display:flex;animation:bob 1s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  button{padding:13px 18px;border-radius:12px;border:none;cursor:pointer;
+    background:linear-gradient(135deg,var(--accent),#e8702a);color:#231404;
+    font-size:1rem;font-weight:800}
+  button.secondary{background:#312639;color:var(--text);font-weight:600}
+  button:disabled{opacity:.5;cursor:wait}
+  .btnrow{display:flex;gap:10px;margin-top:16px}
+  .btnrow button{flex:1}
+  input[type=text]{flex:1;padding:13px 15px;border-radius:12px;border:1px solid var(--line);
+    background:#191221;color:var(--text);font-size:1rem;outline:none;min-width:0}
+  input[type=text]:focus{border-color:var(--accent)}
+  .row{display:flex;gap:10px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+  .chip{background:#2c2135;border:1px solid var(--line);color:var(--muted);
+    border-radius:999px;padding:6px 12px;font-size:.82rem;cursor:pointer;user-select:none}
+  .chip:hover{border-color:var(--accent);color:var(--text)}
+  .status{color:var(--muted);font-size:.9rem;margin-top:14px;min-height:1.2em;text-align:center}
+  .status.error{color:#ff8a8a}
+  .hint{color:var(--muted);font-size:.82rem;margin:14px 0 0;text-align:center}
+  h2{font-size:1.05rem;margin:26px 0 10px;color:var(--accent2);text-align:center}
+  .settings{margin-top:18px;border-top:1px solid var(--line);padding-top:14px;
+    color:var(--muted);font-size:.85rem}
+  .settings label{display:flex;align-items:center;gap:8px;margin-top:8px}
+  .settings input[type=number]{width:80px;padding:6px 8px;border-radius:8px;
+    border:1px solid var(--line);background:#191221;color:var(--text)}
+  .gate{background:#2c2135;border:1px solid var(--line);border-radius:14px;
+    padding:14px;margin-top:14px;display:none}
+  .gate.show{display:block}
+  .gate p{margin:0 0 10px;font-size:.9rem;color:var(--text)}
+  .bar{height:6px;background:#191221;border-radius:99px;overflow:hidden;margin-top:10px;display:none}
+  .bar.show{display:block}
+  .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+  .footer{color:var(--muted);font-size:.8rem;margin:22px 0 4px;max-width:500px;
+    text-align:center;line-height:1.5}
 </style>
 </head>
 <body>
-  <h1><span class="spark">&#10038;</span> Kai's Image AI</h1>
-  <p class="sub">An AI I trained from scratch on my own PC &mdash; now running
-     entirely in <b>your</b> browser. Nothing is sent to any server.</p>
+  <h1><span class="paw">🐾</span> Infinite Cats</h1>
+  <p class="sub">Every cat on this page was invented by a neural network trained
+     from scratch on my own computer. None of them exist. Refresh for a new one.</p>
 
   <div class="card">
-    <div class="row">
-      <input type="text" id="prompt" placeholder="a cat, a red car, an airplane..."
-             maxlength="100" autocomplete="off">
-      <button id="go">Generate</button>
+    <div class="catwrap" id="catwrap">
+      <canvas id="out" width="64" height="64"></canvas>
+      <div class="spinner">🐈</div>
     </div>
     <div class="btnrow">
-      <button id="dream" class="secondary" title="Instant random image, no big download needed">&#127756; Random dream</button>
+      <button id="newcat">🎲 New cat</button>
+      <button id="save" class="secondary">💾 Save</button>
     </div>
 
-    <div class="consent" id="consent">
-      <p><b>Heads up:</b> understanding your words needs an extra AI model
-         (CLIP) that's a big one-time download (tens of MB, roughly
-         50&ndash;100&nbsp;MB). Your browser caches it, so this only happens once.
-         On wifi? Go for it. On phone data? Maybe wait.</p>
-      <label><input type="checkbox" id="dontAsk"> Don't ask again &mdash; auto-download next time</label>
+    <h2>Describe the cat you want</h2>
+    <div class="row">
+      <input type="text" id="prompt" placeholder="fluffy orange sleepy cat"
+             autocomplete="off">
+      <button id="go">Find</button>
+    </div>
+    <div class="chips" id="chips"></div>
+    <p class="hint">This AI only knows how to make cats — so you can describe the
+       cat, not swap it for something else.</p>
+
+    <div class="gate" id="gate">
+      <p><b>Describing cats needs a one-time download (~60 MB)</b> of the matcher
+         model. It stays cached in your browser afterwards.</p>
       <div class="btnrow">
-        <button id="acceptDl">Download &amp; continue</button>
-        <button id="declineDl" class="secondary">Not now</button>
+        <button id="gateYes">Download it</button>
+        <button id="gateNo" class="secondary">No thanks</button>
       </div>
     </div>
+    <div class="bar" id="dlbar"><i></i></div>
 
-    <progress id="dlbar" max="100" value="0"></progress>
-    <div class="result"><canvas id="out" width="64" height="64"></canvas></div>
-    <div class="status" id="status">loading the image maker...</div>
+    <div class="status" id="status">Waking up the cat machine…</div>
 
-    <details class="settings">
-      <summary>&#9881;&#65039; Settings</summary>
-      <div class="setrow">
-        <label for="autoDl">Auto-download the prompt AI (no asking)</label>
-        <input type="checkbox" id="autoDl">
-      </div>
-      <div class="setrow">
-        <label for="tries">Images tried per prompt, 1&ndash;2000 (more = better match, MUCH slower)</label>
-        <input type="number" id="tries" min="1" max="2000" value="16"
-               style="width:90px; padding:8px 10px; border-radius:8px; border:1px solid #2c3040; background:#12141c; color:var(--text); font-size:.95rem;">
-      </div>
-    </details>
+    <div class="settings">
+      <label><input type="checkbox" id="autoDl"> Always allow the matcher download</label>
+      <label>Cats to try per description:
+        <input type="number" id="tries" min="1" max="2000" value="24"></label>
+    </div>
   </div>
 
-  <p class="footer">Images are 64&times;64 and a bit dreamy &mdash; that's what a
-     from-scratch home-trained model looks like. The prompt matcher picks the
-     closest image out of many attempts, so weird prompts get weird results. &#128522;</p>
+  <p class="footer">Cats are 64&times;64 and dreamy — that's what a home-trained
+     model looks like. Describing a cat works by generating a bunch of cats and
+     keeping whichever one best matches your words, so more tries = better match
+     but a longer wait.</p>
 
 <script type="module">
-  // =========================================================================
-  //  SETUP: put generator.onnx (from export_generator.py) in the SAME
-  //  folder as this HTML file in your repo. That's it.
-  // =========================================================================
-  const GENERATOR_URL = 'generator.onnx';
+  const GENERATOR_URL = 'generator.onnx';   // export_generator.py output
   const CLIP_MODEL = 'Xenova/clip-vit-base-patch32';
   const LATENT_DIM = 100;
 
   const $ = id => document.getElementById(id);
-  const statusEl = $('status'), btn = $('go'), dreamBtn = $('dream');
-  const promptEl = $('prompt'), canvas = $('out'), ctx = canvas.getContext('2d');
-  const consentBox = $('consent'), dlbar = $('dlbar');
+  const statusEl=$('status'), canvas=$('out'), ctx=canvas.getContext('2d');
+  const wrap=$('catwrap'), gate=$('gate'), dlbar=$('dlbar');
+  const setStatus=(t,err)=>{statusEl.textContent=t;statusEl.classList.toggle('error',!!err);};
+  const busy=b=>wrap.classList.toggle('busy',b);
 
-  function setStatus(t, err) {
-    statusEl.textContent = t;
-    statusEl.classList.toggle('error', !!err);
+  const store={get(k){try{return localStorage.getItem(k)}catch{return null}},
+               set(k,v){try{localStorage.setItem(k,v)}catch{}}};
+  $('autoDl').checked = store.get('clipAuto')==='1';
+  $('autoDl').addEventListener('change',e=>store.set('clipAuto',e.target.checked?'1':'0'));
+  if(store.get('catTries')) $('tries').value=store.get('catTries');
+  $('tries').addEventListener('change',e=>store.set('catTries',e.target.value));
+
+  // ---------- cat vocabulary: you may describe the cat, not replace it ------
+  const CAT_WORDS = new Set([
+    // colours & patterns
+    'orange','ginger','black','white','grey','gray','brown','cream','silver',
+    'blue','calico','tabby','tortoiseshell','tortie','tuxedo','spotted','striped',
+    'patched','golden','dark','light','pale','colorful','colourful','marbled',
+    // fur
+    'fluffy','fuzzy','furry','longhaired','shorthaired','sleek','hairless','puffy',
+    'shaggy','smooth','scruffy','matted','soft',
+    // size & age
+    'kitten','baby','young','old','big','small','tiny','huge','chubby','fat',
+    'skinny','round','fluffball',
+    // mood & pose
+    'sleeping','sleepy','asleep','awake','curled','sitting','standing','staring',
+    'looking','angry','grumpy','happy','smiling','sad','scared','curious','wide',
+    'yawning','surprised','calm','serious','silly','derpy','majestic','regal',
+    // features
+    'eyes','ear','ears','whiskers','nose','face','paws','tail','fur','pointy',
+    'flat','fluffy','green','yellow','amber','wide-eyed','bigeyes',
+    // breeds
+    'siamese','persian','bengal','sphynx','ragdoll','maine','coon','british',
+    'shorthair','russian','bombay','birman','abyssinian','egyptian','mau',
+    // shot type / lighting
+    'closeup','close','portrait','blurry','bright','shadow','sunlight','glowing',
+    'fierce','cute','ugly','weird','fancy','cool'
+  ]);
+  const FILLER = new Set(['a','an','the','of','with','and','in','on','is','it',
+    'that','very','really','super','looks','looking','like','cat','cats','kitty',
+    'kitten','feline','photo','picture','image','my','this','some','has','have']);
+
+  const CHIPS = ['fluffy orange','sleepy black cat','tiny kitten','grumpy tabby',
+    'fat white cat','siamese with blue eyes','fluffy grey longhair',
+    'staring green eyes','curled up sleeping','majestic maine coon'];
+  CHIPS.forEach(c=>{
+    const el=document.createElement('span');
+    el.className='chip'; el.textContent=c;
+    el.onclick=()=>{$('prompt').value=c; promptGenerate();};
+    $('chips').appendChild(el);
+  });
+
+  function checkCatWords(prompt){
+    const words = prompt.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+    if(!words.length) return {ok:false,msg:'Describe the cat first — try "fluffy orange".'};
+    const known = words.filter(w=>CAT_WORDS.has(w));
+    const unknown = words.filter(w=>!CAT_WORDS.has(w) && !FILLER.has(w));
+    if(!known.length){
+      return {ok:false, msg:'I only make cats, so describe THE CAT — colour, fur, '+
+        'size, mood or breed. Try: fluffy, orange, sleepy, tabby, kitten, siamese…'};
+    }
+    return {ok:true, ignored:unknown};
   }
 
-  // ---- settings (saved in the browser; fails silently if storage is off) --
-  const store = {
-    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
-    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
-  };
-  $('autoDl').checked = store.get('clipAuto') === '1';
-  $('autoDl').addEventListener('change', e =>
-    store.set('clipAuto', e.target.checked ? '1' : '0'));
-  if (store.get('tries')) $('tries').value = store.get('tries');
-  $('tries').addEventListener('change', e => store.set('tries', e.target.value));
-
-  // ---- load the generator (small, always) ---------------------------------
-  let session = null;
-  try {
+  // ---------- generator ----------------------------------------------------
+  let session=null;
+  try{
     session = await ort.InferenceSession.create(GENERATOR_URL);
-    setStatus('Ready! Try "Random dream", or type a prompt.');
-  } catch (e) {
-    setStatus('Could not load generator.onnx — is it uploaded next to this page? (' + e.message + ')', true);
+  }catch(e){
+    setStatus('Could not load generator.onnx — is it next to this page? ('+e.message+')',true);
   }
 
-  function randn(n) { // gaussian noise, Box-Muller
-    const out = new Float32Array(n);
-    for (let i = 0; i < n; i += 2) {
-      const u = Math.random() || 1e-9, v = Math.random();
-      const r = Math.sqrt(-2 * Math.log(u));
-      out[i] = r * Math.cos(2 * Math.PI * v);
-      if (i + 1 < n) out[i + 1] = r * Math.sin(2 * Math.PI * v);
+  function randn(n){
+    const out=new Float32Array(n);
+    for(let i=0;i<n;i+=2){
+      const u=Math.random()||1e-9, v=Math.random();
+      const r=Math.sqrt(-2*Math.log(u));
+      out[i]=r*Math.cos(2*Math.PI*v);
+      if(i+1<n) out[i+1]=r*Math.sin(2*Math.PI*v);
     }
     return out;
   }
-
-  async function generateBatch(batch) {
-    const noise = new ort.Tensor('float32', randn(batch * LATENT_DIM),
-                                 [batch, LATENT_DIM, 1, 1]);
-    const out = await session.run({ noise });
-    return out.image; // [batch,3,64,64], values in [-1,1]
+  async function generateBatch(batch){
+    const noise=new ort.Tensor('float32',randn(batch*LATENT_DIM),[batch,LATENT_DIM,1,1]);
+    const out=await session.run({noise});
+    return out.image;
   }
-
-  function imageToRGB(data, idx) { // CHW [-1,1] -> interleaved RGB bytes
-    const px = 64 * 64, rgb = new Uint8ClampedArray(px * 3);
-    const base = idx * 3 * px;
-    for (let p = 0; p < px; p++) {
-      for (let c = 0; c < 3; c++) {
-        rgb[p * 3 + c] = Math.max(0, Math.min(255,
-          (data[base + c * px + p] * 0.5 + 0.5) * 255));
-      }
-    }
+  function imageToRGB(data,idx){
+    const px=64*64, rgb=new Uint8ClampedArray(px*3), base=idx*3*px;
+    for(let p=0;p<px;p++)
+      for(let c=0;c<3;c++)
+        rgb[p*3+c]=Math.max(0,Math.min(255,(data[base+c*px+p]*0.5+0.5)*255));
     return rgb;
   }
-
-  function draw(rgb) {
-    const im = ctx.createImageData(64, 64);
-    for (let p = 0; p < 64 * 64; p++) {
-      im.data[p * 4] = rgb[p * 3];
-      im.data[p * 4 + 1] = rgb[p * 3 + 1];
-      im.data[p * 4 + 2] = rgb[p * 3 + 2];
-      im.data[p * 4 + 3] = 255;
+  function draw(rgb){
+    const im=ctx.createImageData(64,64);
+    for(let p=0;p<64*64;p++){
+      im.data[p*4]=rgb[p*3]; im.data[p*4+1]=rgb[p*3+1];
+      im.data[p*4+2]=rgb[p*3+2]; im.data[p*4+3]=255;
     }
-    ctx.putImageData(im, 0, 0);
-    canvas.style.display = 'inline';
+    ctx.putImageData(im,0,0);
   }
 
-  // ---- Random dream: instant, no CLIP needed ------------------------------
-  dreamBtn.addEventListener('click', async () => {
-    if (!session) return;
-    dreamBtn.disabled = true; btn.disabled = true;
-    setStatus('dreaming...');
-    try {
-      const t = await generateBatch(1);
-      draw(imageToRGB(t.data, 0));
-      setStatus('A random dream. Type a prompt for something specific.');
-    } catch (e) { setStatus('Error: ' + e.message, true); }
-    dreamBtn.disabled = false; btn.disabled = false;
+  async function newCat(quiet){
+    if(!session) return;
+    busy(true);
+    if(!quiet) setStatus('Dreaming up a cat…');
+    try{
+      const t=await generateBatch(1);
+      draw(imageToRGB(t.data,0));
+      setStatus('Here is a cat that has never existed. 🐱');
+    }catch(e){ setStatus('Generation failed: '+e.message,true); }
+    busy(false);
+  }
+  $('newcat').addEventListener('click',()=>newCat());
+
+  $('save').addEventListener('click',()=>{
+    const big=document.createElement('canvas'); big.width=big.height=512;
+    const bctx=big.getContext('2d'); bctx.imageSmoothingEnabled=false;
+    bctx.drawImage(canvas,0,0,512,512);
+    const a=document.createElement('a');
+    a.download='cat_'+Date.now()+'.png'; a.href=big.toDataURL('image/png'); a.click();
   });
 
-  // ---- CLIP: loaded lazily, with consent ----------------------------------
-  let clip = null; // {tokenizer, textModel, processor, visionModel, RawImage}
-
-  async function loadClip() {
-    dlbar.style.display = 'block';
-    const progress = d => {
-      if (d.status === 'progress' && d.total) {
-        dlbar.value = (d.loaded / d.total) * 100;
-        setStatus('Downloading prompt AI: ' + d.file + ' ' +
-                  Math.round((d.loaded / d.total) * 100) + '%');
-      }
-    };
-    const T = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
-    const [tokenizer, textModel, processor, visionModel] = await Promise.all([
-      T.AutoTokenizer.from_pretrained(CLIP_MODEL, { progress_callback: progress }),
-      T.CLIPTextModelWithProjection.from_pretrained(CLIP_MODEL, { progress_callback: progress }),
-      T.AutoProcessor.from_pretrained(CLIP_MODEL, { progress_callback: progress }),
-      T.CLIPVisionModelWithProjection.from_pretrained(CLIP_MODEL, { progress_callback: progress }),
-    ]);
-    dlbar.style.display = 'none';
-    clip = { tokenizer, textModel, processor, visionModel, RawImage: T.RawImage };
-  }
-
-  function askConsent() {
-    return new Promise(resolve => {
-      consentBox.style.display = 'block';
-      $('acceptDl').onclick = () => {
-        if ($('dontAsk').checked) { store.set('clipAuto', '1'); $('autoDl').checked = true; }
-        consentBox.style.display = 'none'; resolve(true);
-      };
-      $('declineDl').onclick = () => { consentBox.style.display = 'none'; resolve(false); };
+  // ---------- CLIP matcher (only for describing) ---------------------------
+  let clip=null;
+  function askConsent(){
+    if($('autoDl').checked) return Promise.resolve(true);
+    gate.classList.add('show');
+    return new Promise(res=>{
+      $('gateYes').onclick=()=>{gate.classList.remove('show');res(true);};
+      $('gateNo').onclick =()=>{gate.classList.remove('show');res(false);};
     });
   }
-
-  function cosine(a, b) {
-    let dot = 0, na = 0, nb = 0;
-    for (let i = 0; i < a.length; i++) { dot += a[i]*b[i]; na += a[i]*a[i]; nb += b[i]*b[i]; }
-    return dot / (Math.sqrt(na) * Math.sqrt(nb));
+  async function loadClip(){
+    if(clip) return clip;
+    dlbar.classList.add('show');
+    const progress=d=>{ if(d.status==='progress'&&d.total)
+      dlbar.firstElementChild.style.width=(100*d.loaded/d.total).toFixed(0)+'%'; };
+    setStatus('Downloading the matcher (one time)…');
+    const T=await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+    const [tokenizer,textModel,processor,visionModel]=await Promise.all([
+      T.AutoTokenizer.from_pretrained(CLIP_MODEL),
+      T.CLIPTextModelWithProjection.from_pretrained(CLIP_MODEL,{progress_callback:progress}),
+      T.AutoProcessor.from_pretrained(CLIP_MODEL),
+      T.CLIPVisionModelWithProjection.from_pretrained(CLIP_MODEL,{progress_callback:progress}),
+    ]);
+    clip={tokenizer,textModel,processor,visionModel,RawImage:T.RawImage};
+    dlbar.classList.remove('show');
+    return clip;
+  }
+  function cosine(a,b){
+    let d=0,na=0,nb=0;
+    for(let i=0;i<a.length;i++){d+=a[i]*b[i];na+=a[i]*a[i];nb+=b[i]*b[i];}
+    return d/(Math.sqrt(na)*Math.sqrt(nb)+1e-9);
   }
 
-  // ---- Prompted generation ------------------------------------------------
-  let running = false, stopRequested = false;
-  btn.addEventListener('click', () => {
-    if (running) { stopRequested = true; btn.textContent = 'Stopping...'; }
-    else promptGenerate();
-  });
-  promptEl.addEventListener('keydown', e => { if (e.key === 'Enter' && !running) promptGenerate(); });
-
-  async function promptGenerate() {
-    if (!session) return;
-    const prompt = promptEl.value.trim();
-    if (!prompt) { setStatus('Type something first — or hit Random dream.'); return; }
-
-    if (!clip) {
-      if (store.get('clipAuto') !== '1') {
-        const ok = await askConsent();
-        if (!ok) { setStatus('No download, no prompts — but Random dream still works!'); return; }
-      }
-      btn.disabled = true; dreamBtn.disabled = true;
-      try { await loadClip(); }
-      catch (e) {
-        setStatus('Prompt AI failed to load: ' + e.message, true);
-        btn.disabled = false; dreamBtn.disabled = false; return;
-      }
+  async function promptGenerate(){
+    if(!session) return;
+    const raw=$('prompt').value.trim();
+    const check=checkCatWords(raw);
+    if(!check.ok){ setStatus(check.msg,true); return; }
+    if(!clip){
+      const ok=await askConsent();
+      if(!ok){ setStatus('No problem — random cats still work!'); return; }
+      try{ await loadClip(); }
+      catch(e){ setStatus('Matcher failed to load: '+e.message,true); return; }
     }
-
-    running = true; stopRequested = false;
-    btn.disabled = false; btn.textContent = 'Stop'; dreamBtn.disabled = true;
-    try {
-      const tries = Math.min(2000, Math.max(1, parseInt($('tries').value, 10) || 16));
-
-      // Text embedding for the prompt
-      setStatus('Reading your prompt...');
-      const tok = clip.tokenizer([prompt], { padding: true, truncation: true });
-      const tOut = await clip.textModel(tok);
-      const textEmb = tOut.text_embeds.data;
-
-      // Generate candidates + score each
-      let bestScore = -Infinity, bestRGB = null, tried = 0;
-      const CHUNK = 4;
-      for (let done = 0; done < tries && !stopRequested; done += CHUNK) {
-        const b = Math.min(CHUNK, tries - done);
-        const t = await generateBatch(b);
-        for (let i = 0; i < b; i++) {
-          const rgb = imageToRGB(t.data, i);
-          const raw = new clip.RawImage(rgb, 64, 64, 3);
-          const inputs = await clip.processor(raw);
-          const vOut = await clip.visionModel(inputs);
-          const score = cosine(textEmb, vOut.image_embeds.data);
-          if (score > bestScore) { bestScore = score; bestRGB = rgb; draw(rgb); }
+    // the model only makes cats, so we always anchor the query to a cat
+    const query='a photo of a '+raw+' cat';
+    const tries=Math.min(2000,Math.max(1,parseInt($('tries').value,10)||24));
+    busy(true);
+    try{
+      const tok=clip.tokenizer([query],{padding:true,truncation:true});
+      const textEmb=(await clip.textModel(tok)).text_embeds.data;
+      let best=null,bestScore=-2,done=0;
+      const CHUNK=4;
+      while(done<tries){
+        const b=Math.min(CHUNK,tries-done);
+        const t=await generateBatch(b);
+        for(let i=0;i<b;i++){
+          const rgb=imageToRGB(t.data,i);
+          const inputs=await clip.processor(new clip.RawImage(rgb,64,64,3));
+          const score=cosine(textEmb,(await clip.visionModel(inputs)).image_embeds.data);
+          if(score>bestScore){bestScore=score;best=rgb;draw(rgb);}
         }
-        tried = done + b;
-        setStatus('Trying images... ' + tried + '/' + tries);
+        done+=b;
+        setStatus(`Searching cats… ${done}/${tries}`);
+        await new Promise(r=>setTimeout(r,0));
       }
-
-      draw(bestRGB);
-      setStatus((stopRequested ? 'Stopped early — best' : 'Best') + ' of ' +
-                tried + ' tries — match ' + (bestScore * 100).toFixed(0) + '%');
-    } catch (e) {
-      setStatus('Error: ' + e.message, true);
-    }
-    running = false; stopRequested = false;
-    btn.textContent = 'Generate'; btn.disabled = false; dreamBtn.disabled = false;
+      if(best) draw(best);
+      let msg=`Closest cat to "${raw}" out of ${tries}.`;
+      if(check.ignored&&check.ignored.length)
+        msg+=` (ignored: ${check.ignored.join(', ')} — I only do cats)`;
+      setStatus(msg);
+    }catch(e){ setStatus('Search failed: '+e.message,true); }
+    busy(false);
   }
+  $('go').addEventListener('click',promptGenerate);
+  $('prompt').addEventListener('keydown',e=>{if(e.key==='Enter')promptGenerate();});
+
+  // ---------- a cat appears the moment you open the page -------------------
+  if(session) newCat(true);
 </script>
 </body>
 </html>
