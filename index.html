@@ -17,42 +17,61 @@
     padding-top:env(safe-area-inset-top,0px);
     padding-bottom:env(safe-area-inset-bottom,0px);
   }
-  /* the cat fills the screen, exactly like thispersondoesnotexist */
   canvas{
     height:100%; width:100%; object-fit:contain;
-    opacity:0; transition:opacity .35s ease;
-    image-rendering:auto;            /* smooth upscale = dreamy, not blocky */
+    opacity:0; transition:opacity .4s ease;
+    image-rendering:auto;
   }
   canvas.on{ opacity:1 }
   #msg{
     position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-    color:#6d6d75; font-size:15px; letter-spacing:.3px; text-align:center;
-    padding:24px; pointer-events:none;
+    color:#6d6d75; font-size:15px; text-align:center; padding:24px; pointer-events:none;
   }
-  #hint{
+  /* thin progress line across the very top — feedback while it searches */
+  #bar{
+    position:fixed; top:0; left:0; height:2px; width:0;
+    background:linear-gradient(90deg,#ff9f45,#ffd166);
+    transition:width .25s ease, opacity .8s ease; z-index:5;
+  }
+  #bar.done{ opacity:0 }
+  #note{
     position:fixed; left:0; right:0; bottom:calc(14px + env(safe-area-inset-bottom,0px));
-    text-align:center; color:#ffffff; font-size:12px; letter-spacing:.6px;
-    text-shadow:0 1px 6px #000; opacity:.55; transition:opacity 1.2s ease;
+    text-align:center; color:#fff; font-size:12px; letter-spacing:.5px;
+    text-shadow:0 1px 6px #000; opacity:.5; transition:opacity 1s ease;
     pointer-events:none;
   }
-  #hint.fade{ opacity:0 }
+  #note.fade{ opacity:0 }
 </style>
 </head>
 <body>
+  <div id="bar"></div>
   <canvas id="out" width="64" height="64"></canvas>
   <div id="msg">waking up the cat machine…</div>
-  <div id="hint">click, tap or press space for another cat &nbsp;·&nbsp; S to save</div>
+  <div id="note"></div>
 
 <script type="module">
-  const GENERATOR_URL = 'generator.onnx';   // must sit next to this file
+  // ---------------------------------------------------------------------
+  //  Each cat shown here is the BEST of TRIES candidates, judged by CLIP.
+  //  Change the count with ?tries=500 in the URL.
+  // ---------------------------------------------------------------------
+  const GENERATOR_URL = 'generator.onnx';
+  const CLIP_MODEL = 'Xenova/clip-vit-base-patch32';
   const LATENT_DIM = 100;
+  const RANK_PROMPT = 'a sharp clear photo of a cat face, detailed fur and eyes';
+  const TRIES = Math.min(2000, Math.max(1,
+      parseInt(new URLSearchParams(location.search).get('tries'), 10) || 20));
+  const CHUNK = 4;              // cats generated per batch
 
   const canvas = document.getElementById('out');
   const ctx = canvas.getContext('2d');
   const msg = document.getElementById('msg');
-  const hint = document.getElementById('hint');
+  const note = document.getElementById('note');
+  const bar = document.getElementById('bar');
 
-  let session = null, busy = false;
+  let session = null, clip = null, running = false;
+
+  const setNote = t => { note.textContent = t; note.classList.remove('fade'); };
+  const fadeNote = () => note.classList.add('fade');
 
   function randn(n){
     const out = new Float32Array(n);
@@ -64,48 +83,107 @@
     }
     return out;
   }
-
-  function draw(data){
-    const px = 64 * 64;
+  async function generateBatch(b){
+    const noise = new ort.Tensor('float32', randn(b * LATENT_DIM), [b, LATENT_DIM, 1, 1]);
+    return (await session.run({ noise })).image;
+  }
+  function toRGB(data, idx){
+    const px = 64 * 64, rgb = new Uint8ClampedArray(px * 3), base = idx * 3 * px;
+    for (let p = 0; p < px; p++)
+      for (let c = 0; c < 3; c++)
+        rgb[p*3+c] = Math.max(0, Math.min(255, (data[base + c*px + p] * 0.5 + 0.5) * 255));
+    return rgb;
+  }
+  function draw(rgb){
     const im = ctx.createImageData(64, 64);
-    for (let p = 0; p < px; p++){
-      for (let c = 0; c < 3; c++){
-        im.data[p * 4 + c] = Math.max(0, Math.min(255,
-          (data[c * px + p] * 0.5 + 0.5) * 255));
-      }
-      im.data[p * 4 + 3] = 255;
+    for (let p = 0; p < 64*64; p++){
+      im.data[p*4] = rgb[p*3]; im.data[p*4+1] = rgb[p*3+1];
+      im.data[p*4+2] = rgb[p*3+2]; im.data[p*4+3] = 255;
     }
     ctx.putImageData(im, 0, 0);
+    canvas.classList.add('on');
+    msg.textContent = '';
+  }
+  function cosine(a, b){
+    let d = 0, na = 0, nb = 0;
+    for (let i = 0; i < a.length; i++){ d += a[i]*b[i]; na += a[i]*a[i]; nb += b[i]*b[i]; }
+    return d / (Math.sqrt(na) * Math.sqrt(nb) + 1e-9);
   }
 
-  async function newCat(){
-    if (!session || busy) return;
-    busy = true;
-    canvas.classList.remove('on');
+  async function loadClip(){
+    if (clip) return clip;
+    setNote('loading the cat judge (one time, ~60 MB)…');
+    const T = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+    const prog = d => {
+      if (d.status === 'progress' && d.total)
+        bar.style.width = (30 * d.loaded / d.total).toFixed(1) + '%';
+    };
+    const [tokenizer, textModel, processor, visionModel] = await Promise.all([
+      T.AutoTokenizer.from_pretrained(CLIP_MODEL),
+      T.CLIPTextModelWithProjection.from_pretrained(CLIP_MODEL, { progress_callback: prog }),
+      T.AutoProcessor.from_pretrained(CLIP_MODEL),
+      T.CLIPVisionModelWithProjection.from_pretrained(CLIP_MODEL, { progress_callback: prog }),
+    ]);
+    clip = { tokenizer, textModel, processor, visionModel, RawImage: T.RawImage };
+    return clip;
+  }
+
+  async function bestCat(){
+    if (!session || running) return;
+    running = true;
+    bar.classList.remove('done');
+    bar.style.width = '2%';
+    canvas.classList.remove('on');            // stay hidden until the winner is ready
+    msg.textContent = 'finding a cat…';
+    setNote('');
+
     try{
-      const noise = new ort.Tensor('float32', randn(LATENT_DIM), [1, LATENT_DIM, 1, 1]);
-      const out = await session.run({ noise });
-      draw(out.image.data);
-      msg.textContent = '';
-      canvas.classList.add('on');
+      await loadClip();
+      const tok = clip.tokenizer([RANK_PROMPT], { padding: true, truncation: true });
+      const textEmb = (await clip.textModel(tok)).text_embeds.data;
+
+      let bestScore = -2, bestRGB = null, done = 0;
+      const t0 = performance.now();
+      while (done < TRIES){
+        const b = Math.min(CHUNK, TRIES - done);
+        const batch = await generateBatch(b);
+        for (let i = 0; i < b; i++){
+          const rgb = toRGB(batch.data, i);
+          const inputs = await clip.processor(new clip.RawImage(rgb, 64, 64, 3));
+          const score = cosine(textEmb, (await clip.visionModel(inputs)).image_embeds.data);
+          if (score > bestScore){ bestScore = score; bestRGB = rgb; }
+        }
+        done += b;
+        bar.style.width = (30 + 70 * done / TRIES).toFixed(1) + '%';
+        msg.textContent = `finding a cat… ${done}/${TRIES}`;
+        await new Promise(r => setTimeout(r, 0));   // let the screen repaint
+      }
+      bar.style.width = '100%';
+      bar.classList.add('done');
+      if (bestRGB) draw(bestRGB);             // <- the one and only reveal
+      setNote(`best of ${TRIES} cats  ·  click for another`);
+      setTimeout(fadeNote, 3000);
     }catch(e){
-      msg.textContent = 'generation failed: ' + e.message;
+      // judge unavailable: fall back to a plain random cat so the page still works
+      bar.classList.add('done');
+      const solo = await generateBatch(1);
+      draw(toRGB(solo.data, 0));
+      setNote('random cat (matcher unavailable)');
+      setTimeout(fadeNote, 3000);
     }
-    busy = false;
+    running = false;
   }
 
-  // one cat appears the moment the page opens; reloading gives you another
   try{
     session = await ort.InferenceSession.create(GENERATOR_URL);
-    await newCat();
+    await bestCat();
   }catch(e){
     msg.textContent = 'could not load generator.onnx — is it uploaded next to this page?';
   }
 
-  // extras that stay invisible until you want them
-  document.body.addEventListener('click', newCat);
+  document.body.addEventListener('click', () => { if (!running) bestCat(); });
   document.addEventListener('keydown', e => {
-    if (e.code === 'Space' || e.key === 'Enter'){ e.preventDefault(); newCat(); }
+    if ((e.code === 'Space' || e.key === 'Enter') && !running){ e.preventDefault(); bestCat(); }
     if (e.key === 's' || e.key === 'S'){
       const big = document.createElement('canvas');
       big.width = big.height = 1024;
@@ -118,8 +196,6 @@
       a.click();
     }
   });
-
-  setTimeout(() => hint.classList.add('fade'), 4000);
 </script>
 </body>
 </html>
