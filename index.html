@@ -3,332 +3,123 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Infinite Cats — Kai's Cat AI</title>
+<title>This Cat Does Not Exist</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><text y=%2214%22 font-size=%2214%22>🐱</text></svg>">
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.min.js"></script>
 <style>
-  :root {
-    --bg:#140f18; --card:#221a29; --text:#f0e9f2; --accent:#ff9f45;
-    --accent2:#ffd166; --muted:#a397ab; --line:#33283c;
-    box-sizing:border-box;
+  :root{ box-sizing:border-box }
+  *{ box-sizing:inherit; margin:0; padding:0 }
+  html,body{ height:100%; background:#000; overflow:hidden }
+  body{
+    display:flex; align-items:center; justify-content:center;
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    cursor:pointer; user-select:none;
     padding-top:env(safe-area-inset-top,0px);
     padding-bottom:env(safe-area-inset-bottom,0px);
   }
-  *{box-sizing:inherit}
-  html,body{height:100%;margin:0}
-  html{scroll-padding-top:env(safe-area-inset-top,0px)}
-  body{
-    background:var(--bg);
-    background-image:radial-gradient(circle at 18% 8%,#3a1f2e 0%,transparent 45%),
-                     radial-gradient(circle at 85% 85%,#2a2013 0%,transparent 42%);
-    color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
-    display:flex;flex-direction:column;align-items:center;padding:28px 16px;
+  /* the cat fills the screen, exactly like thispersondoesnotexist */
+  canvas{
+    height:100%; width:100%; object-fit:contain;
+    opacity:0; transition:opacity .35s ease;
+    image-rendering:auto;            /* smooth upscale = dreamy, not blocky */
   }
-  h1{font-size:1.9rem;margin:6px 0 2px;letter-spacing:.5px}
-  h1 .paw{color:var(--accent)}
-  .sub{color:var(--muted);margin:0 0 22px;font-size:.95rem;text-align:center;max-width:460px}
-  .card{background:var(--card);border-radius:20px;padding:22px;width:100%;
-    max-width:520px;box-shadow:0 12px 36px rgba(0,0,0,.45);border:1px solid var(--line)}
-  canvas#out{width:100%;max-width:360px;aspect-ratio:1/1;image-rendering:pixelated;
-    border-radius:16px;border:1px solid var(--line);background:#181220;display:block;margin:0 auto}
-  .catwrap{position:relative;text-align:center}
-  .catwrap.busy canvas{opacity:.45;transition:opacity .2s}
-  .spinner{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
-    font-size:2.2rem}
-  .catwrap.busy .spinner{display:flex;animation:bob 1s ease-in-out infinite}
-  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-  button{padding:13px 18px;border-radius:12px;border:none;cursor:pointer;
-    background:linear-gradient(135deg,var(--accent),#e8702a);color:#231404;
-    font-size:1rem;font-weight:800}
-  button.secondary{background:#312639;color:var(--text);font-weight:600}
-  button:disabled{opacity:.5;cursor:wait}
-  .btnrow{display:flex;gap:10px;margin-top:16px}
-  .btnrow button{flex:1}
-  input[type=text]{flex:1;padding:13px 15px;border-radius:12px;border:1px solid var(--line);
-    background:#191221;color:var(--text);font-size:1rem;outline:none;min-width:0}
-  input[type=text]:focus{border-color:var(--accent)}
-  .row{display:flex;gap:10px}
-  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
-  .chip{background:#2c2135;border:1px solid var(--line);color:var(--muted);
-    border-radius:999px;padding:6px 12px;font-size:.82rem;cursor:pointer;user-select:none}
-  .chip:hover{border-color:var(--accent);color:var(--text)}
-  .status{color:var(--muted);font-size:.9rem;margin-top:14px;min-height:1.2em;text-align:center}
-  .status.error{color:#ff8a8a}
-  .hint{color:var(--muted);font-size:.82rem;margin:14px 0 0;text-align:center}
-  h2{font-size:1.05rem;margin:26px 0 10px;color:var(--accent2);text-align:center}
-  .settings{margin-top:18px;border-top:1px solid var(--line);padding-top:14px;
-    color:var(--muted);font-size:.85rem}
-  .settings label{display:flex;align-items:center;gap:8px;margin-top:8px}
-  .settings input[type=number]{width:80px;padding:6px 8px;border-radius:8px;
-    border:1px solid var(--line);background:#191221;color:var(--text)}
-  .gate{background:#2c2135;border:1px solid var(--line);border-radius:14px;
-    padding:14px;margin-top:14px;display:none}
-  .gate.show{display:block}
-  .gate p{margin:0 0 10px;font-size:.9rem;color:var(--text)}
-  .bar{height:6px;background:#191221;border-radius:99px;overflow:hidden;margin-top:10px;display:none}
-  .bar.show{display:block}
-  .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
-  .footer{color:var(--muted);font-size:.8rem;margin:22px 0 4px;max-width:500px;
-    text-align:center;line-height:1.5}
+  canvas.on{ opacity:1 }
+  #msg{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    color:#6d6d75; font-size:15px; letter-spacing:.3px; text-align:center;
+    padding:24px; pointer-events:none;
+  }
+  #hint{
+    position:fixed; left:0; right:0; bottom:calc(14px + env(safe-area-inset-bottom,0px));
+    text-align:center; color:#ffffff; font-size:12px; letter-spacing:.6px;
+    text-shadow:0 1px 6px #000; opacity:.55; transition:opacity 1.2s ease;
+    pointer-events:none;
+  }
+  #hint.fade{ opacity:0 }
 </style>
 </head>
 <body>
-  <h1><span class="paw">🐾</span> Infinite Cats</h1>
-  <p class="sub">Every cat on this page was invented by a neural network trained
-     from scratch on my own computer. None of them exist. Refresh for a new one.</p>
-
-  <div class="card">
-    <div class="catwrap" id="catwrap">
-      <canvas id="out" width="64" height="64"></canvas>
-      <div class="spinner">🐈</div>
-    </div>
-    <div class="btnrow">
-      <button id="newcat">🎲 New cat</button>
-      <button id="save" class="secondary">💾 Save</button>
-    </div>
-
-    <h2>Describe the cat you want</h2>
-    <div class="row">
-      <input type="text" id="prompt" placeholder="fluffy orange sleepy cat"
-             autocomplete="off">
-      <button id="go">Find</button>
-    </div>
-    <div class="chips" id="chips"></div>
-    <p class="hint">This AI only knows how to make cats — so you can describe the
-       cat, not swap it for something else.</p>
-
-    <div class="gate" id="gate">
-      <p><b>Describing cats needs a one-time download (~60 MB)</b> of the matcher
-         model. It stays cached in your browser afterwards.</p>
-      <div class="btnrow">
-        <button id="gateYes">Download it</button>
-        <button id="gateNo" class="secondary">No thanks</button>
-      </div>
-    </div>
-    <div class="bar" id="dlbar"><i></i></div>
-
-    <div class="status" id="status">Waking up the cat machine…</div>
-
-    <div class="settings">
-      <label><input type="checkbox" id="autoDl"> Always allow the matcher download</label>
-      <label>Cats to try per description:
-        <input type="number" id="tries" min="1" max="2000" value="24"></label>
-    </div>
-  </div>
-
-  <p class="footer">Cats are 64&times;64 and dreamy — that's what a home-trained
-     model looks like. Describing a cat works by generating a bunch of cats and
-     keeping whichever one best matches your words, so more tries = better match
-     but a longer wait.</p>
+  <canvas id="out" width="64" height="64"></canvas>
+  <div id="msg">waking up the cat machine…</div>
+  <div id="hint">click, tap or press space for another cat &nbsp;·&nbsp; S to save</div>
 
 <script type="module">
-  const GENERATOR_URL = 'generator.onnx';   // export_generator.py output
-  const CLIP_MODEL = 'Xenova/clip-vit-base-patch32';
+  const GENERATOR_URL = 'generator.onnx';   // must sit next to this file
   const LATENT_DIM = 100;
 
-  const $ = id => document.getElementById(id);
-  const statusEl=$('status'), canvas=$('out'), ctx=canvas.getContext('2d');
-  const wrap=$('catwrap'), gate=$('gate'), dlbar=$('dlbar');
-  const setStatus=(t,err)=>{statusEl.textContent=t;statusEl.classList.toggle('error',!!err);};
-  const busy=b=>wrap.classList.toggle('busy',b);
+  const canvas = document.getElementById('out');
+  const ctx = canvas.getContext('2d');
+  const msg = document.getElementById('msg');
+  const hint = document.getElementById('hint');
 
-  const store={get(k){try{return localStorage.getItem(k)}catch{return null}},
-               set(k,v){try{localStorage.setItem(k,v)}catch{}}};
-  $('autoDl').checked = store.get('clipAuto')==='1';
-  $('autoDl').addEventListener('change',e=>store.set('clipAuto',e.target.checked?'1':'0'));
-  if(store.get('catTries')) $('tries').value=store.get('catTries');
-  $('tries').addEventListener('change',e=>store.set('catTries',e.target.value));
-
-  // ---------- cat vocabulary: you may describe the cat, not replace it ------
-  const CAT_WORDS = new Set([
-    // colours & patterns
-    'orange','ginger','black','white','grey','gray','brown','cream','silver',
-    'blue','calico','tabby','tortoiseshell','tortie','tuxedo','spotted','striped',
-    'patched','golden','dark','light','pale','colorful','colourful','marbled',
-    // fur
-    'fluffy','fuzzy','furry','longhaired','shorthaired','sleek','hairless','puffy',
-    'shaggy','smooth','scruffy','matted','soft',
-    // size & age
-    'kitten','baby','young','old','big','small','tiny','huge','chubby','fat',
-    'skinny','round','fluffball',
-    // mood & pose
-    'sleeping','sleepy','asleep','awake','curled','sitting','standing','staring',
-    'looking','angry','grumpy','happy','smiling','sad','scared','curious','wide',
-    'yawning','surprised','calm','serious','silly','derpy','majestic','regal',
-    // features
-    'eyes','ear','ears','whiskers','nose','face','paws','tail','fur','pointy',
-    'flat','fluffy','green','yellow','amber','wide-eyed','bigeyes',
-    // breeds
-    'siamese','persian','bengal','sphynx','ragdoll','maine','coon','british',
-    'shorthair','russian','bombay','birman','abyssinian','egyptian','mau',
-    // shot type / lighting
-    'closeup','close','portrait','blurry','bright','shadow','sunlight','glowing',
-    'fierce','cute','ugly','weird','fancy','cool'
-  ]);
-  const FILLER = new Set(['a','an','the','of','with','and','in','on','is','it',
-    'that','very','really','super','looks','looking','like','cat','cats','kitty',
-    'kitten','feline','photo','picture','image','my','this','some','has','have']);
-
-  const CHIPS = ['fluffy orange','sleepy black cat','tiny kitten','grumpy tabby',
-    'fat white cat','siamese with blue eyes','fluffy grey longhair',
-    'staring green eyes','curled up sleeping','majestic maine coon'];
-  CHIPS.forEach(c=>{
-    const el=document.createElement('span');
-    el.className='chip'; el.textContent=c;
-    el.onclick=()=>{$('prompt').value=c; promptGenerate();};
-    $('chips').appendChild(el);
-  });
-
-  function checkCatWords(prompt){
-    const words = prompt.toLowerCase().split(/[^a-z]+/).filter(Boolean);
-    if(!words.length) return {ok:false,msg:'Describe the cat first — try "fluffy orange".'};
-    const known = words.filter(w=>CAT_WORDS.has(w));
-    const unknown = words.filter(w=>!CAT_WORDS.has(w) && !FILLER.has(w));
-    if(!known.length){
-      return {ok:false, msg:'I only make cats, so describe THE CAT — colour, fur, '+
-        'size, mood or breed. Try: fluffy, orange, sleepy, tabby, kitten, siamese…'};
-    }
-    return {ok:true, ignored:unknown};
-  }
-
-  // ---------- generator ----------------------------------------------------
-  let session=null;
-  try{
-    session = await ort.InferenceSession.create(GENERATOR_URL);
-  }catch(e){
-    setStatus('Could not load generator.onnx — is it next to this page? ('+e.message+')',true);
-  }
+  let session = null, busy = false;
 
   function randn(n){
-    const out=new Float32Array(n);
-    for(let i=0;i<n;i+=2){
-      const u=Math.random()||1e-9, v=Math.random();
-      const r=Math.sqrt(-2*Math.log(u));
-      out[i]=r*Math.cos(2*Math.PI*v);
-      if(i+1<n) out[i+1]=r*Math.sin(2*Math.PI*v);
+    const out = new Float32Array(n);
+    for (let i = 0; i < n; i += 2){
+      const u = Math.random() || 1e-9, v = Math.random();
+      const r = Math.sqrt(-2 * Math.log(u));
+      out[i] = r * Math.cos(2 * Math.PI * v);
+      if (i + 1 < n) out[i + 1] = r * Math.sin(2 * Math.PI * v);
     }
     return out;
   }
-  async function generateBatch(batch){
-    const noise=new ort.Tensor('float32',randn(batch*LATENT_DIM),[batch,LATENT_DIM,1,1]);
-    const out=await session.run({noise});
-    return out.image;
-  }
-  function imageToRGB(data,idx){
-    const px=64*64, rgb=new Uint8ClampedArray(px*3), base=idx*3*px;
-    for(let p=0;p<px;p++)
-      for(let c=0;c<3;c++)
-        rgb[p*3+c]=Math.max(0,Math.min(255,(data[base+c*px+p]*0.5+0.5)*255));
-    return rgb;
-  }
-  function draw(rgb){
-    const im=ctx.createImageData(64,64);
-    for(let p=0;p<64*64;p++){
-      im.data[p*4]=rgb[p*3]; im.data[p*4+1]=rgb[p*3+1];
-      im.data[p*4+2]=rgb[p*3+2]; im.data[p*4+3]=255;
+
+  function draw(data){
+    const px = 64 * 64;
+    const im = ctx.createImageData(64, 64);
+    for (let p = 0; p < px; p++){
+      for (let c = 0; c < 3; c++){
+        im.data[p * 4 + c] = Math.max(0, Math.min(255,
+          (data[c * px + p] * 0.5 + 0.5) * 255));
+      }
+      im.data[p * 4 + 3] = 255;
     }
-    ctx.putImageData(im,0,0);
+    ctx.putImageData(im, 0, 0);
   }
 
-  async function newCat(quiet){
-    if(!session) return;
-    busy(true);
-    if(!quiet) setStatus('Dreaming up a cat…');
+  async function newCat(){
+    if (!session || busy) return;
+    busy = true;
+    canvas.classList.remove('on');
     try{
-      const t=await generateBatch(1);
-      draw(imageToRGB(t.data,0));
-      setStatus('Here is a cat that has never existed. 🐱');
-    }catch(e){ setStatus('Generation failed: '+e.message,true); }
-    busy(false);
+      const noise = new ort.Tensor('float32', randn(LATENT_DIM), [1, LATENT_DIM, 1, 1]);
+      const out = await session.run({ noise });
+      draw(out.image.data);
+      msg.textContent = '';
+      canvas.classList.add('on');
+    }catch(e){
+      msg.textContent = 'generation failed: ' + e.message;
+    }
+    busy = false;
   }
-  $('newcat').addEventListener('click',()=>newCat());
 
-  $('save').addEventListener('click',()=>{
-    const big=document.createElement('canvas'); big.width=big.height=512;
-    const bctx=big.getContext('2d'); bctx.imageSmoothingEnabled=false;
-    bctx.drawImage(canvas,0,0,512,512);
-    const a=document.createElement('a');
-    a.download='cat_'+Date.now()+'.png'; a.href=big.toDataURL('image/png'); a.click();
+  // one cat appears the moment the page opens; reloading gives you another
+  try{
+    session = await ort.InferenceSession.create(GENERATOR_URL);
+    await newCat();
+  }catch(e){
+    msg.textContent = 'could not load generator.onnx — is it uploaded next to this page?';
+  }
+
+  // extras that stay invisible until you want them
+  document.body.addEventListener('click', newCat);
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' || e.key === 'Enter'){ e.preventDefault(); newCat(); }
+    if (e.key === 's' || e.key === 'S'){
+      const big = document.createElement('canvas');
+      big.width = big.height = 1024;
+      const b = big.getContext('2d');
+      b.imageSmoothingEnabled = true;
+      b.drawImage(canvas, 0, 0, 1024, 1024);
+      const a = document.createElement('a');
+      a.download = 'cat_' + Date.now() + '.png';
+      a.href = big.toDataURL('image/png');
+      a.click();
+    }
   });
 
-  // ---------- CLIP matcher (only for describing) ---------------------------
-  let clip=null;
-  function askConsent(){
-    if($('autoDl').checked) return Promise.resolve(true);
-    gate.classList.add('show');
-    return new Promise(res=>{
-      $('gateYes').onclick=()=>{gate.classList.remove('show');res(true);};
-      $('gateNo').onclick =()=>{gate.classList.remove('show');res(false);};
-    });
-  }
-  async function loadClip(){
-    if(clip) return clip;
-    dlbar.classList.add('show');
-    const progress=d=>{ if(d.status==='progress'&&d.total)
-      dlbar.firstElementChild.style.width=(100*d.loaded/d.total).toFixed(0)+'%'; };
-    setStatus('Downloading the matcher (one time)…');
-    const T=await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
-    const [tokenizer,textModel,processor,visionModel]=await Promise.all([
-      T.AutoTokenizer.from_pretrained(CLIP_MODEL),
-      T.CLIPTextModelWithProjection.from_pretrained(CLIP_MODEL,{progress_callback:progress}),
-      T.AutoProcessor.from_pretrained(CLIP_MODEL),
-      T.CLIPVisionModelWithProjection.from_pretrained(CLIP_MODEL,{progress_callback:progress}),
-    ]);
-    clip={tokenizer,textModel,processor,visionModel,RawImage:T.RawImage};
-    dlbar.classList.remove('show');
-    return clip;
-  }
-  function cosine(a,b){
-    let d=0,na=0,nb=0;
-    for(let i=0;i<a.length;i++){d+=a[i]*b[i];na+=a[i]*a[i];nb+=b[i]*b[i];}
-    return d/(Math.sqrt(na)*Math.sqrt(nb)+1e-9);
-  }
-
-  async function promptGenerate(){
-    if(!session) return;
-    const raw=$('prompt').value.trim();
-    const check=checkCatWords(raw);
-    if(!check.ok){ setStatus(check.msg,true); return; }
-    if(!clip){
-      const ok=await askConsent();
-      if(!ok){ setStatus('No problem — random cats still work!'); return; }
-      try{ await loadClip(); }
-      catch(e){ setStatus('Matcher failed to load: '+e.message,true); return; }
-    }
-    // the model only makes cats, so we always anchor the query to a cat
-    const query='a photo of a '+raw+' cat';
-    const tries=Math.min(2000,Math.max(1,parseInt($('tries').value,10)||24));
-    busy(true);
-    try{
-      const tok=clip.tokenizer([query],{padding:true,truncation:true});
-      const textEmb=(await clip.textModel(tok)).text_embeds.data;
-      let best=null,bestScore=-2,done=0;
-      const CHUNK=4;
-      while(done<tries){
-        const b=Math.min(CHUNK,tries-done);
-        const t=await generateBatch(b);
-        for(let i=0;i<b;i++){
-          const rgb=imageToRGB(t.data,i);
-          const inputs=await clip.processor(new clip.RawImage(rgb,64,64,3));
-          const score=cosine(textEmb,(await clip.visionModel(inputs)).image_embeds.data);
-          if(score>bestScore){bestScore=score;best=rgb;draw(rgb);}
-        }
-        done+=b;
-        setStatus(`Searching cats… ${done}/${tries}`);
-        await new Promise(r=>setTimeout(r,0));
-      }
-      if(best) draw(best);
-      let msg=`Closest cat to "${raw}" out of ${tries}.`;
-      if(check.ignored&&check.ignored.length)
-        msg+=` (ignored: ${check.ignored.join(', ')} — I only do cats)`;
-      setStatus(msg);
-    }catch(e){ setStatus('Search failed: '+e.message,true); }
-    busy(false);
-  }
-  $('go').addEventListener('click',promptGenerate);
-  $('prompt').addEventListener('keydown',e=>{if(e.key==='Enter')promptGenerate();});
-
-  // ---------- a cat appears the moment you open the page -------------------
-  if(session) newCat(true);
+  setTimeout(() => hint.classList.add('fade'), 4000);
 </script>
 </body>
 </html>
